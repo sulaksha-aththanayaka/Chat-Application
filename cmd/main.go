@@ -13,6 +13,10 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+var hub = Hub{
+	clients: make(map[*websocket.Conn]bool),
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // Upgrade HTTP connection to WebSocket connection
 
@@ -21,17 +25,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hub.Register(conn)
+
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			hub.Unregister(conn)
 			return
 		}
 
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println(err)
-			return
-		}
+		hub.Broadcast(conn, messageType, p)
+
 	}
 }
 
